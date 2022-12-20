@@ -1,4 +1,5 @@
 import 'package:age_calculator/age_calculator.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime dateTime = DateTime.now();
   DateTime date = DateTime.now();
   bool isFabVisible = true;
+  String searchText = '';
 
   List<Map<String, dynamic>> Items = [];
 
@@ -59,18 +61,42 @@ class _HomeScreenState extends State<HomeScreen> {
   void _refresh() {
     final data = _birthdays.keys.map((key) {
       final item = _birthdays.get(key);
+
+      //calculate date
+      var diff;
+      if (DateTime.now().month == item['date'].month &&
+              DateTime.now().day >= item['date'].day ||
+          DateTime.now().month > item['date'].month) {
+        diff = (DateTime(DateTime.now().year + 1, item['date'].month,
+                        item['date'].day)
+                    .difference(DateTime.now())
+                    .inHours /
+                24)
+            .round();
+      } else {
+        diff =
+            (DateTime(DateTime.now().year, item['date'].month, item['date'].day)
+                        .difference(DateTime.now())
+                        .inHours /
+                    24)
+                .round();
+      }
+      //
       return {
         "key": key,
         "name": item['name'],
         "eventName": item['eventName'],
         "date": item['date'],
+        "toNextDay": diff,
+        "yearKnown": item['yearKnown'],
       };
     }).toList();
 
     setState(() {
       Items = data.toList();
-      print(Items.length);
-      print(Items);
+      Items.sort((a, b) {
+        return a['toNextDay'].compareTo(b['toNextDay']);
+      });
     });
   }
 
@@ -78,7 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _createEvent(Map<String, dynamic> newItem) async {
     await _birthdays.add(newItem);
-    print("length is ${_birthdays.length}");
     _refresh();
   }
 
@@ -95,15 +120,39 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: isFabVisible
-          ? FloatingActionButton(
-              backgroundColor: const Color(0xFFADA2FF),
-              onPressed: () {
-                BottomSheet(context, null);
-              },
-              child: Icon(Icons.add),
-            )
-          : null,
+      bottomNavigationBar: CurvedNavigationBar(
+        height: 60,
+        backgroundColor: Colors.transparent,
+        color: Color(0xFFADA2FF),
+        items: [
+          Icon(
+            Icons.home,
+            color: Colors.white,
+          ),
+          Icon(
+            Icons.add,
+            color: Colors.white,
+          ),
+          Icon(
+            Icons.settings,
+            color: Colors.white,
+          ),
+        ],
+        onTap: (index) {
+          if (index == 1) {
+            BottomSheet(context, null);
+          }
+        },
+      ),
+      // floatingActionButton: isFabVisible
+      //     ? FloatingActionButton(
+      //         backgroundColor: const Color(0xFFADA2FF),
+      //         onPressed: () {
+      //           BottomSheet(context, null);
+      //         },
+      //         child: Icon(Icons.add),
+      //       )
+      //     : null,
       appBar: widget.isSearch == false
           ? AppBar(
               elevation: 0,
@@ -120,10 +169,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
               title: const Text(
-                'Birthdays',
+                'Upcoming',
                 style: TextStyle(
-                  color: Colors.black,
                   fontWeight: FontWeight.bold,
+                  fontSize: 20,
                 ),
               ),
             )
@@ -135,6 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: TextField(
+                  onChanged: (value) {
+                    searchText = value;
+                    _refresh();
+                  },
                   cursorColor: Color(
                     0xFFADA2FF,
                   ),
@@ -143,6 +196,8 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 GestureDetector(
                   onTap: () {
+                    searchText = '';
+                    _refresh();
                     setState(() {
                       widget.isSearch = false;
                     });
@@ -172,29 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Scrollbar(
           showTrackOnHover: true,
           child: ListView.builder(
-              itemCount: Items.length,
-              itemBuilder: (_, index) {
-                final instant = Items[index];
-                final formatedDate = DateFormat.yMMMd().format(instant['date']);
-                final age = ((AgeCalculator.age(instant['date'])).years);
-                var diff;
-                if (DateTime.now().month == instant['date'].month &&
-                        DateTime.now().day >= instant['date'].day ||
-                    DateTime.now().month > instant['date'].month) {
-                  diff = (DateTime(DateTime.now().year + 1,
-                                  instant['date'].month, instant['date'].day)
-                              .difference(DateTime.now())
-                              .inHours /
-                          24)
-                      .round();
-                } else {
-                  diff = (DateTime(DateTime.now().year, instant['date'].month,
-                                  instant['date'].day)
-                              .difference(DateTime.now())
-                              .inHours /
-                          24)
-                      .round();
-                }
+            itemCount: Items.length,
+            itemBuilder: (_, index) {
+              final instant = Items[index];
+              final formatedDate = DateFormat.yMMMd().format(instant['date']);
+              final age = ((AgeCalculator.age(instant['date'])).years);
+              if (instant['name']
+                  .toString()
+                  .toLowerCase()
+                  .contains(searchText)) {
                 return Padding(
                   padding: const EdgeInsets.all(15.0),
                   child: Slidable(
@@ -209,11 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           onPressed: ((context) {
-                            print(index);
-                            BottomSheet(
-                                context,
-                                (instant[
-                                    'key'])); // 0 1 2 3 4 // 0 > 4-0=4 // 1 > 4-1=3
+                            BottomSheet(context, (instant['key']));
                           }),
                           backgroundColor: Color(0xFFBCCEF8),
                           icon: Icons.edit,
@@ -233,8 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            blurRadius: 5,
-                            offset: Offset(0, 5),
+                            blurRadius: 4,
                             color: Color(0xFFBCCEF8),
                           ),
                         ],
@@ -275,37 +311,46 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '${diff} Days for ${instant['eventName']}',
+                                      '${instant['toNextDay']} Days for ${instant['eventName']}',
                                       style: TextStyle(fontSize: 12),
                                     ),
                                     Text(
-                                      formatedDate,
+                                      instant['yearKnown']
+                                          ? DateFormat.MMMd()
+                                              .format(instant['date'])
+                                          : formatedDate,
                                       style: TextStyle(fontSize: 12),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                            Column(
-                              children: [
-                                Text('Turns'),
-                                Text(
-                                  '${age + 1}',
-                                  style: GoogleFonts.getFont(
-                                    'Lato',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 30,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            instant['yearKnown'] == false
+                                ? Column(
+                                    children: [
+                                      Text('Turns'),
+                                      Text(
+                                        '${age + 1}',
+                                        style: GoogleFonts.getFont(
+                                          'Lato',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 30,
+                                        ),
+                                      )
+                                    ],
+                                  )
+                                : Column(),
                           ],
                         ),
                       ),
                     ),
                   ),
                 );
-              }),
+              } else {
+                return Container();
+              }
+            },
+          ),
         ),
       ),
     );
@@ -314,12 +359,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<dynamic> BottomSheet(BuildContext context, int? itemKey) {
     TextEditingController _name = TextEditingController();
     TextEditingController _eventName = TextEditingController();
+    bool error = false;
+
+    date = DateTime.now();
 
     if (itemKey != null) {
       final finditem = Items.firstWhere((element) => element['key'] == itemKey);
       _name.text = finditem['name'];
       _eventName.text = finditem['eventName'];
-      // date = finditem['date'];
+      yearKnown = finditem['yearKnown'];
+      date = finditem['date'];
+      print(date);
     }
 
     return showModalBottomSheet<dynamic>(
@@ -340,7 +390,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           GestureDetector(
-                            onTap: () => Navigator.pop(context),
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
                             child: Icon(
                               Icons.close,
                               color: Color(0xFFADA2FF),
@@ -354,13 +406,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         child: Column(
                           children: [
-                            TextField(
-                              controller: _name,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                labelText: 'Name',
-                              ),
+                            StatefulBuilder(
+                              builder: (context, setState) {
+                                return TextField(
+                                  controller: _name,
+                                  decoration: InputDecoration(
+                                    enabledBorder: OutlineInputBorder(
+                                        borderSide:
+                                            //error == true
+                                            // ?
+                                            BorderSide(color: Color(0xFFADA2FF))
+                                        //     : BorderSide(
+                                        //         color: Colors.re,
+                                        //       ),
+                                        ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    labelText: 'Name',
+                                  ),
+                                );
+                              },
                             ),
                             SizedBox(
                               height: 20,
@@ -368,6 +434,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             TextField(
                               controller: _eventName,
                               decoration: InputDecoration(
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: error == true
+                                      ? BorderSide(color: Colors.red)
+                                      : BorderSide(
+                                          color: Color(0xFFADA2FF),
+                                        ),
+                                ),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10)),
                                 labelText: 'Event',
@@ -405,26 +478,34 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       ElevatedButton(
                         onPressed: () async {
-                          if (itemKey == null) {
-                            _createEvent({
-                              "name": _name.text,
-                              "eventName": _eventName.text,
-                              "date": date,
+                          if (_name.text.isEmpty) {
+                            setState(() {
+                              error = true;
                             });
+                          } else {
+                            if (itemKey == null) {
+                              _createEvent({
+                                "name": _name.text,
+                                "eventName": _eventName.text,
+                                "date": date,
+                                "yearKnown": yearKnown,
+                              });
+                            }
+
+                            if (itemKey != null) {
+                              _updateEvent(itemKey, {
+                                "name": _name.text,
+                                "eventName": _eventName.text,
+                                "date": date,
+                                "yearKnown": yearKnown,
+                              });
+                            }
+
+                            _name.text = '';
+                            _eventName.text = '';
+
+                            Navigator.of(context).pop();
                           }
-
-                          if (itemKey != null) {
-                            _updateEvent(itemKey, {
-                              "name": _name.text,
-                              "eventName": _eventName.text,
-                              "date": date,
-                            });
-                          }
-
-                          _name.text = '';
-                          _eventName.text = '';
-
-                          Navigator.of(context).pop();
                         },
                         child: Text(itemKey == null ? 'Add' : 'Update'),
                       ),
@@ -439,12 +520,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget datePicker() => Flexible(
         child: CupertinoDatePicker(
-          initialDateTime: dateTime,
+          initialDateTime: date,
           mode: CupertinoDatePickerMode.date,
           onDateTimeChanged: (dateTime) => setState(
             () {
               date = dateTime;
-              print(date);
             },
           ),
         ),
