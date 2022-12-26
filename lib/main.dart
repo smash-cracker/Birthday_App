@@ -1,5 +1,4 @@
 import 'package:age_calculator/age_calculator.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -26,7 +25,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
           colorScheme: ColorScheme.fromSwatch().copyWith(
-            primary: Color(0xFFADA2FF),
+            primary: const Color(0xFFADA2FF),
           ),
           textTheme: GoogleFonts.latoTextTheme(Theme.of(context).textTheme)),
       home: HomeScreen(),
@@ -49,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isFabVisible = true;
   String searchText = '';
 
-  List<Map<String, dynamic>> Items = [];
+  List<Map<String, dynamic>> items = [];
 
   @override
   void initState() {
@@ -67,19 +66,17 @@ class _HomeScreenState extends State<HomeScreen> {
       if (DateTime.now().month == item['date'].month &&
               DateTime.now().day >= item['date'].day ||
           DateTime.now().month > item['date'].month) {
-        diff = (DateTime(DateTime.now().year + 1, item['date'].month,
-                        item['date'].day)
-                    .difference(DateTime.now())
-                    .inHours /
-                24)
-            .round();
+        diff = ((DateTime(DateTime.now().year + 1, item['date'].month,
+                    item['date'].day)
+                .difference(DateTime.now())
+                .inDays) +
+            1);
       } else {
         diff =
             (DateTime(DateTime.now().year, item['date'].month, item['date'].day)
-                        .difference(DateTime.now())
-                        .inHours /
-                    24)
-                .round();
+                    .difference(DateTime.now())
+                    .inDays) +
+                1;
       }
       //
       return {
@@ -87,14 +84,14 @@ class _HomeScreenState extends State<HomeScreen> {
         "name": item['name'],
         "eventName": item['eventName'],
         "date": item['date'],
-        "toNextDay": diff,
+        "toNextDay": diff == 365 ? 0 : diff,
         "yearKnown": item['yearKnown'],
       };
     }).toList();
 
     setState(() {
-      Items = data.toList();
-      Items.sort((a, b) {
+      items = data.toList();
+      items.sort((a, b) {
         return a['toNextDay'].compareTo(b['toNextDay']);
       });
     });
@@ -120,39 +117,39 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: CurvedNavigationBar(
-        height: 60,
-        backgroundColor: Colors.transparent,
-        color: Color(0xFFADA2FF),
-        items: [
-          Icon(
-            Icons.home,
-            color: Colors.white,
-          ),
-          Icon(
-            Icons.add,
-            color: Colors.white,
-          ),
-          Icon(
-            Icons.settings,
-            color: Colors.white,
-          ),
-        ],
-        onTap: (index) {
-          if (index == 1) {
-            BottomSheet(context, null);
-          }
-        },
-      ),
-      // floatingActionButton: isFabVisible
-      //     ? FloatingActionButton(
-      //         backgroundColor: const Color(0xFFADA2FF),
-      //         onPressed: () {
-      //           BottomSheet(context, null);
-      //         },
-      //         child: Icon(Icons.add),
-      //       )
-      //     : null,
+      // bottomNavigationBar: CurvedNavigationBar(
+      //   height: 60,
+      //   backgroundColor: Colors.transparent,
+      //   color: Color(0xFFADA2FF),
+      //   items: [
+      //     Icon(
+      //       Icons.home,
+      //       color: Colors.white,
+      //     ),
+      //     Icon(
+      //       Icons.add,
+      //       color: Colors.white,
+      //     ),
+      //     Icon(
+      //       Icons.settings,
+      //       color: Colors.white,
+      //     ),
+      //   ],
+      //   onTap: (index) {
+      //     if (index == 1) {
+      //       BottomSheet(context, null);
+      //     }
+      //   },
+      // ),
+      floatingActionButton: isFabVisible
+          ? FloatingActionButton(
+              backgroundColor: const Color(0xFFADA2FF),
+              onPressed: () {
+                BottomSheet(context, null);
+              },
+              child: Icon(Icons.add),
+            )
+          : null,
       appBar: widget.isSearch == false
           ? AppBar(
               elevation: 0,
@@ -163,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       widget.isSearch = true;
                     });
                   },
-                  child: Icon(
+                  child: const Icon(
                     Icons.search,
                   ),
                 ),
@@ -188,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     searchText = value;
                     _refresh();
                   },
-                  cursorColor: Color(
+                  cursorColor: const Color(
                     0xFFADA2FF,
                   ),
                 ),
@@ -202,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       widget.isSearch = false;
                     });
                   },
-                  child: Icon(
+                  child: const Icon(
                     Icons.close,
                   ),
                 ),
@@ -211,146 +208,187 @@ class _HomeScreenState extends State<HomeScreen> {
       body: NotificationListener<UserScrollNotification>(
         onNotification: (notification) {
           if (notification.direction == ScrollDirection.forward) {
-            if (!isFabVisible)
+            if (!isFabVisible) {
               setState(() {
                 isFabVisible = true;
               });
+            }
           } else if (notification.direction == ScrollDirection.reverse) {
-            if (isFabVisible)
+            if (isFabVisible) {
               setState(() {
                 isFabVisible = false;
               });
+            }
           }
 
           return true;
         },
         child: Scrollbar(
           showTrackOnHover: true,
-          child: ListView.builder(
-            itemCount: Items.length,
-            itemBuilder: (_, index) {
-              final instant = Items[index];
-              final formatedDate = DateFormat.yMMMd().format(instant['date']);
-              final age = ((AgeCalculator.age(instant['date'])).years);
-              if (instant['name']
-                  .toString()
-                  .toLowerCase()
-                  .contains(searchText)) {
-                return Padding(
-                  padding: const EdgeInsets.all(15.0),
-                  child: Slidable(
-                    startActionPane: ActionPane(
-                      motion: StretchMotion(),
-                      children: [
-                        SlidableAction(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(10),
-                            bottomLeft: Radius.circular(
-                              10,
-                            ),
-                          ),
-                          onPressed: ((context) {
-                            BottomSheet(context, (instant['key']));
-                          }),
-                          backgroundColor: Color(0xFFBCCEF8),
-                          icon: Icons.edit,
-                        ),
-                        SlidableAction(
-                          onPressed: ((context) {
-                            _delete(instant['key']);
-                          }),
-                          backgroundColor: Color.fromARGB(255, 65, 72, 88),
-                          icon: Icons.delete,
-                        ),
-                      ],
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            blurRadius: 4,
-                            color: Color(0xFFBCCEF8),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Column(
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        image: DecorationImage(
-                                          image: AssetImage('assets/dp.png'),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+          child: items.isNotEmpty
+              ? ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (_, index) {
+                    if (items.isEmpty) {
+                      return const Image(
+                        image: AssetImage('assets/empty.png'),
+                        fit: BoxFit.cover,
+                      );
+                    }
+                    final instant = items[index];
+                    final formatedDate =
+                        DateFormat.yMMMd().format(instant['date']);
+                    final age = ((AgeCalculator.age(instant['date'])).years);
+                    if (instant['name']
+                        .toString()
+                        .toLowerCase()
+                        .contains(searchText)) {
+                      return Padding(
+                        padding: const EdgeInsets.all(15.0),
+                        child: Slidable(
+                          startActionPane: ActionPane(
+                            motion: const StretchMotion(),
+                            children: [
+                              SlidableAction(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(10),
+                                  bottomLeft: Radius.circular(
+                                    10,
+                                  ),
                                 ),
-                                SizedBox(
-                                  width: 20,
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      instant['name'],
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${instant['toNextDay']} Days for ${instant['eventName']}',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                    Text(
-                                      instant['yearKnown']
-                                          ? DateFormat.MMMd()
-                                              .format(instant['date'])
-                                          : formatedDate,
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                  ],
+                                onPressed: ((context) {
+                                  BottomSheet(context, (instant['key']));
+                                }),
+                                backgroundColor: const Color(0xFFBCCEF8),
+                                icon: Icons.edit,
+                              ),
+                              SlidableAction(
+                                onPressed: ((context) {
+                                  _delete(instant['key']);
+                                }),
+                                backgroundColor:
+                                    const Color.fromARGB(255, 65, 72, 88),
+                                icon: Icons.delete,
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: const [
+                                BoxShadow(
+                                  blurRadius: 4,
+                                  color: Color(0xFFBCCEF8),
                                 ),
                               ],
                             ),
-                            instant['yearKnown'] == false
-                                ? Column(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
                                     children: [
-                                      Text('Turns'),
-                                      Text(
-                                        '${age + 1}',
-                                        style: GoogleFonts.getFont(
-                                          'Lato',
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 30,
-                                        ),
-                                      )
+                                      Column(
+                                        children: [
+                                          Container(
+                                            width: 80,
+                                            height: 80,
+                                            decoration: const BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              image: DecorationImage(
+                                                image:
+                                                    AssetImage('assets/dp.png'),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(
+                                        width: 20,
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          SizedBox(
+                                            width: 200,
+                                            child: Text(
+                                              instant['name'],
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                              width: 200,
+                                              child: instant['toNextDay'] == 0
+                                                  ? Text(
+                                                      '${instant['eventName']} is Today',
+                                                      style: const TextStyle(
+                                                          fontSize: 12),
+                                                    )
+                                                  : instant['toNextDay'] == 1
+                                                      ? Text(
+                                                          '${instant['eventName']} is Tomorrow',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 12),
+                                                        )
+                                                      : Text(
+                                                          '${instant['toNextDay']} Days for ${instant['eventName']}',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize: 12),
+                                                        )),
+                                          Text(
+                                            instant['yearKnown']
+                                                ? DateFormat.MMMd()
+                                                    .format(instant['date'])
+                                                : formatedDate,
+                                            style:
+                                                const TextStyle(fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
                                     ],
-                                  )
-                                : Column(),
-                          ],
+                                  ),
+                                  instant['yearKnown'] == false
+                                      ? Column(
+                                          children: [
+                                            const Text('Turns'),
+                                            Text(
+                                              '${age + 1}',
+                                              style: GoogleFonts.getFont(
+                                                'Lato',
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 30,
+                                              ),
+                                            )
+                                          ],
+                                        )
+                                      : Column(),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    } else {
+                      return Container();
+                    }
+                  },
+                )
+              : const Center(
+                  child: Image(
+                    image: AssetImage('assets/empty.png'),
+                    fit: BoxFit.cover,
                   ),
-                );
-              } else {
-                return Container();
-              }
-            },
-          ),
+                ),
         ),
       ),
     );
@@ -364,12 +402,11 @@ class _HomeScreenState extends State<HomeScreen> {
     date = DateTime.now();
 
     if (itemKey != null) {
-      final finditem = Items.firstWhere((element) => element['key'] == itemKey);
+      final finditem = items.firstWhere((element) => element['key'] == itemKey);
       _name.text = finditem['name'];
       _eventName.text = finditem['eventName'];
       yearKnown = finditem['yearKnown'];
       date = finditem['date'];
-      print(date);
     }
 
     return showModalBottomSheet<dynamic>(
@@ -393,63 +430,61 @@ class _HomeScreenState extends State<HomeScreen> {
                             onTap: () {
                               Navigator.pop(context);
                             },
-                            child: Icon(
+                            child: const Icon(
                               Icons.close,
                               color: Color(0xFFADA2FF),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(
+                      const SizedBox(
                         height: 10,
                       ),
-                      Container(
-                        child: Column(
-                          children: [
-                            StatefulBuilder(
-                              builder: (context, setState) {
-                                return TextField(
-                                  controller: _name,
-                                  decoration: InputDecoration(
-                                    enabledBorder: OutlineInputBorder(
-                                        borderSide:
-                                            //error == true
-                                            // ?
-                                            BorderSide(color: Color(0xFFADA2FF))
-                                        //     : BorderSide(
-                                        //         color: Colors.re,
-                                        //       ),
-                                        ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    labelText: 'Name',
+                      Column(
+                        children: [
+                          StatefulBuilder(
+                            builder: (context, setState) {
+                              return TextField(
+                                controller: _name,
+                                decoration: InputDecoration(
+                                  enabledBorder: const OutlineInputBorder(
+                                      borderSide:
+                                          //error == true
+                                          // ?
+                                          BorderSide(color: Color(0xFFADA2FF))
+                                      //     : BorderSide(
+                                      //         color: Colors.re,
+                                      //       ),
+                                      ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                );
-                              },
-                            ),
-                            SizedBox(
-                              height: 20,
-                            ),
-                            TextField(
-                              controller: _eventName,
-                              decoration: InputDecoration(
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: error == true
-                                      ? BorderSide(color: Colors.red)
-                                      : BorderSide(
-                                          color: Color(0xFFADA2FF),
-                                        ),
+                                  labelText: 'Name',
                                 ),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                                labelText: 'Event',
+                              );
+                            },
+                          ),
+                          const SizedBox(
+                            height: 20,
+                          ),
+                          TextField(
+                            controller: _eventName,
+                            decoration: InputDecoration(
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: error == true
+                                    ? const BorderSide(color: Colors.red)
+                                    : const BorderSide(
+                                        color: Color(0xFFADA2FF),
+                                      ),
                               ),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              labelText: 'Event',
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Container(
+                      SizedBox(
                         height: 200,
                         child: Column(
                           children: [
@@ -457,24 +492,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      Container(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            StatefulBuilder(builder: (context, setState) {
-                              return Checkbox(
-                                activeColor: Color(0xFFADA2FF),
-                                value: yearKnown,
-                                onChanged: (newbool) {
-                                  setState(() {
-                                    yearKnown = newbool;
-                                  });
-                                },
-                              );
-                            }),
-                            Text('Check if you don\'t know the year'),
-                          ],
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          StatefulBuilder(builder: (context, setState) {
+                            return Checkbox(
+                              activeColor: const Color(0xFFADA2FF),
+                              value: yearKnown,
+                              onChanged: (newbool) {
+                                setState(() {
+                                  yearKnown = newbool;
+                                });
+                              },
+                            );
+                          }),
+                          const Text('Check if you don\'t know the year'),
+                        ],
                       ),
                       ElevatedButton(
                         onPressed: () async {
